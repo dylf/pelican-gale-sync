@@ -219,25 +219,46 @@ class GaleSyncPage extends ServerFormPage
             ? $line(trans('gale-sync::messages.pending_changes', $pending['counts']), 'warning')
             : $line(trans('gale-sync::messages.up_to_date'), 'success');
 
-        $labels = ['install' => '+', 'update' => '~', 'remove' => '-', 'skip' => '·'];
+        // One color per kind of change, shown as a tinted row and a badge so a long list is easy to scan.
+        $colors = ['install' => '#22c55e', 'update' => '#3b82f6', 'remove' => '#ef4444', 'skip' => '#9ca3af'];
+        $symbols = ['install' => '+', 'update' => '~', 'remove' => '−', 'skip' => '·'];
+        $badge = fn (string $action, string $text) => '<span style="display: inline-block; min-width: 4.5rem; padding: .05rem .5rem; border-radius: .375rem; font-weight: 600; text-align: center; color: ' . $colors[$action] . '; background: ' . $colors[$action] . '26;">'
+            . e($symbols[$action] . ' ' . $text) . '</span>';
+
+        $chips = '';
+
+        foreach ($pending['counts'] ?? [] as $action => $count) {
+            if ($count > 0 && isset($colors[$action])) {
+                $chips .= '<span style="margin-right: .5rem;">' . $badge($action, $count . ' ' . $action) . '</span>';
+            }
+        }
+
+        if ($chips !== '') {
+            $html .= '<p style="margin: 0 0 .5rem;">' . $chips . '</p>';
+        }
+
         $rows = '';
 
         foreach ($pending['items'] ?? [] as $item) {
-            $version = match ($item['action']) {
+            $action = $item['action'];
+            $color = $colors[$action] ?? '#9ca3af';
+            $version = match ($action) {
                 'update' => "{$item['from']} → {$item['to']}",
                 'remove' => $item['from'],
                 default => $item['to'],
             };
-            $note = trim(($item['source'] ? $item['source'] : '') . ($item['reason'] ? ' · ' . $item['reason'] : ''), ' ·');
-            $rows .= '<tr style="opacity: ' . ($item['action'] === 'skip' ? '.6' : '1') . ';">'
-                . '<td style="padding: .15rem .75rem .15rem 0;">' . e($labels[$item['action']] ?? '') . ' ' . e($item['action']) . '</td>'
-                . '<td style="padding: .15rem .75rem .15rem 0;">' . e($item['name']) . '</td>'
-                . '<td style="padding: .15rem .75rem .15rem 0;">' . e((string) $version) . '</td>'
-                . '<td style="padding: .15rem 0;">' . e($note) . '</td></tr>';
+            $note = trim(($item['source'] ?: '') . ($item['reason'] ? ' · ' . $item['reason'] : ''), ' ·');
+            $cell = 'padding: .2rem .75rem .2rem .5rem;';
+
+            $rows .= '<tr style="background: ' . $color . '14; box-shadow: inset 3px 0 0 ' . $color . ';' . ($action === 'skip' ? ' opacity: .7;' : '') . '">'
+                . '<td style="' . $cell . '">' . $badge($action, $action) . '</td>'
+                . '<td style="' . $cell . ' font-weight: 500;">' . e($item['name']) . '</td>'
+                . '<td style="' . $cell . ' color: ' . $color . ';">' . e((string) $version) . '</td>'
+                . '<td style="' . $cell . ' opacity: .75;">' . e($note) . '</td></tr>';
         }
 
         if ($rows !== '') {
-            $html .= '<table style="font-size: .8rem; border-collapse: collapse;">' . $rows . '</table>';
+            $html .= '<table style="font-size: .8rem; border-collapse: separate; border-spacing: 0 2px; width: 100%;">' . $rows . '</table>';
         }
 
         return new HtmlString($html);
