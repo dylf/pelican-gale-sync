@@ -1,0 +1,52 @@
+<?php
+
+return [
+    'title' => 'Gale Sync',
+    'saved' => 'Saved',
+    'save_failed' => 'Could not save',
+
+    'profile_section' => 'Gale profile',
+    'profile_section_hint' => 'The mods this server installs. Your players use the same profile in Gale, so server and clients run the same mods.',
+    'profile' => 'Gale sync ID',
+    'profile_hint' => 'In Gale, sync your profile and paste its code here (6 characters or 22). A one-time profile code (a UUID) also works, but it is a snapshot and never updates.',
+    'profile_invalid' => 'That is not a Gale sync ID or a profile code.',
+
+    'options_section' => 'What to install',
+    'skip_client_only' => 'Skip client-side mods',
+    'skip_client_only_hint' => 'Mods tagged client-side only do nothing on a server, so they are left out and removed if installed earlier.',
+    'config_mode' => 'Config files from the profile',
+    'config_mode_hint' => 'Settings files the profile carries. Player data and the loader\'s own settings are never sent.',
+    'config_none' => 'Don\'t copy any',
+    'config_missing' => 'Copy files the server doesn\'t have yet',
+    'config_overwrite' => 'Make the server match the profile',
+
+    'auto_section' => 'Updates',
+    'auto_section_hint' => 'By default a profile update only waits here until you press Sync now. These let a server apply it by itself.',
+    'auto_stopped' => 'Apply updates when the server is stopped',
+    'auto_stopped_hint' => 'Good with Lazy Pelican: the server updates while nobody is playing, before the next start.',
+    'auto_empty' => 'Apply updates when the server is empty',
+    'auto_empty_hint' => 'Stops the server when no players are online, updates it and starts it again.',
+    'auto_empty_needs_player_counter' => 'Needs the Player Counter plugin with a Game Query for this egg, to know when nobody is on the server.',
+    'auto_manual_note' => 'Make sure your players update their profile in Gale too, or the server and their clients will run different mods.',
+
+    'status_section' => 'Status',
+    'no_profile' => 'Enter a Gale sync ID to get started.',
+    'never' => 'never',
+    'last_check' => 'Last checked :when.',
+    'last_sync' => 'Last synced :when (:message).',
+    'last_sync_failed' => 'The last sync failed: :message',
+    'syncing' => 'Syncing: :message',
+    'queued' => 'Waiting for the queue',
+    'up_to_date' => 'The server matches the profile.',
+    'pending_for' => 'Profile ":profile" for :game.',
+    'pending_changes' => 'An update is waiting: :install to install, :update to update, :remove to remove.',
+
+    'check_now' => 'Check now',
+    'check_failed' => 'Could not check the profile',
+    'check_found_changes' => 'The profile has changes the server doesn\'t have yet',
+    'sync_now' => 'Sync now',
+    'sync_confirm_stopped' => 'Installs, updates and removes mods so the server matches the profile.',
+    'sync_confirm_running' => 'The server is running. It will be stopped, updated to match the profile, and started again.',
+    'sync_started' => 'Sync started',
+    'already_syncing' => 'A sync is already running',
+];

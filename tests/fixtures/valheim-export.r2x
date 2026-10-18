@@ -1,0 +1,230 @@
+profileName: Example Profile
+mods:
+- name: denikson-BepInExPack_Valheim
+  version:
+    major: 5
+    minor: 4
+    patch: 2351
+  enabled: true
+  source: Hexium
+- name: Azumatt-AzuCraftyBoxes
+  version:
+    major: 1
+    minor: 8
+    patch: 28
+  enabled: true
+  source: Hexium
+- name: Azumatt-AzuExtendedPlayerInventory
+  version:
+    major: 2
+    minor: 6
+    patch: 4
+  enabled: true
+  source: Hexium
+- name: Azumatt-Unshamed
+  version:
+    major: 1
+    minor: 0
+    patch: 8
+  enabled: true
+  source: Hexium
+- name: Azumatt-AzuAutoStore
+  version:
+    major: 3
+    minor: 1
+    patch: 7
+  enabled: true
+  source: Hexium
+- name: Azumatt-Recycle_N_Reclaim
+  version:
+    major: 1
+    minor: 4
+    patch: 5
+  enabled: true
+  source: Hexium
+- name: Azumatt-AAA_Crafting
+  version:
+    major: 2
+    minor: 1
+    patch: 11
+  enabled: true
+  source: Hexium
+- name: Azumatt-AzuAreaRepair
+  version:
+    major: 1
+    minor: 1
+    patch: 8
+  enabled: true
+  source: Hexium
+- name: Azumatt-Build_Camera_Custom_Hammers_Edition
+  version:
+    major: 1
+    minor: 3
+    patch: 4
+  enabled: true
+  source: Hexium
+- name: TastyChickenLegs-BirdsAndTheBees
+  version:
+    major: 1
+    minor: 3
+    patch: 4
+  enabled: true
+  source: Thunderstore
+- name: ValheimModding-YamlDotNet
+  version:
+    major: 16
+    minor: 3
+    patch: 1
+  enabled: true
+  source: Thunderstore
+- name: ValheimModding-Jotunn
+  version:
+    major: 2
+    minor: 30
+    patch: 2
+  enabled: true
+  source: Thunderstore
+- name: Vapok-AdventureBackpacks
+  version:
+    major: 2
+    minor: 4
+    patch: 6
+  enabled: true
+  source: Thunderstore
+- name: Azumatt-FirstPersonMode
+  version:
+    major: 1
+    minor: 4
+    patch: 6
+  enabled: true
+  source: Hexium
+- name: MSchmoecker-MultiUserChest
+  version:
+    major: 0
+    minor: 6
+    patch: 2
+  enabled: true
+  source: Thunderstore
+- name: VegettaPT-No_Food_Degradation
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  enabled: true
+  source: Thunderstore
+- name: Azumatt-PetPantry
+  version:
+    major: 1
+    minor: 0
+    patch: 7
+  enabled: true
+  source: Hexium
+- name: MaxFoxGaming-Procreation_Plus
+  version:
+    major: 1
+    minor: 2
+    patch: 3
+  enabled: true
+  source: Thunderstore
+- name: Advize-PlantEverything
+  version:
+    major: 1
+    minor: 21
+    patch: 4
+  enabled: true
+  source: Thunderstore
+- name: Advize-PlantEasily
+  version:
+    major: 2
+    minor: 3
+    patch: 0
+  enabled: true
+  source: Thunderstore
+- name: Azumatt-RepairStation
+  version:
+    major: 1
+    minor: 2
+    patch: 8
+  enabled: true
+  source: Hexium
+- name: TastyChickenLegs-AutomaticFuel
+  version:
+    major: 1
+    minor: 5
+    patch: 7
+  enabled: true
+  source: Thunderstore
+- name: Nextek-SpeedyPaths
+  version:
+    major: 1
+    minor: 0
+    patch: 9
+  enabled: true
+  source: Thunderstore
+- name: Searica-AdvancedTerrainModifiers
+  version:
+    major: 1
+    minor: 6
+    patch: 0
+  enabled: true
+  source: Thunderstore
+- name: P377Y-Smooth_Sailing
+  version:
+    major: 0
+    minor: 3
+    patch: 4
+  enabled: true
+  source: Thunderstore
+- name: Tchernobill-Valheim_Portal_View
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  enabled: true
+  source: Thunderstore
+- name: Akuichi-ReforgedPotential
+  version:
+    major: 2
+    minor: 0
+    patch: 8
+  enabled: true
+  source: Thunderstore
+- name: JereKuusela-Server_devcommands
+  version:
+    major: 1
+    minor: 115
+    patch: 0
+  enabled: true
+  source: Thunderstore
+- name: LVH-IT-UseEquipmentInWater
+  version:
+    major: 0
+    minor: 2
+    patch: 4
+  enabled: true
+  source: Thunderstore
+- name: RustyMods-Seasonality
+  version:
+    major: 3
+    minor: 8
+    patch: 4
+  enabled: true
+  source: Thunderstore
+- name: ishid4-BetterArchery
+  version:
+    major: 2
+    minor: 0
+    patch: 5
+  enabled: true
+  source: Thunderstore
+- name: Goldenrevolver-Quick_Stack_Store_Sort_Trash_Restock
+  version:
+    major: 1
+    minor: 4
+    patch: 16
+  enabled: true
+  source: Thunderstore
+community: valheim
+ignoredUpdates: []
+ignoredPackageUpdates: []
+excludedFiles: []

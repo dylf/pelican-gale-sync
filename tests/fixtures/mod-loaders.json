@@ -1,0 +1,113 @@
+{
+ "BONEWORKS": {
+  "name": "MelonLoader",
+  "subdirs": [
+   {
+    "name": "Plugins",
+    "target": "Plugins",
+    "mode": "track",
+    "extension": ".plugin.dll"
+   },
+   {
+    "name": "UserData",
+    "target": "UserData",
+    "mode": "track"
+   },
+   {
+    "name": "CustomItems",
+    "target": "UserData/CustomItems",
+    "mode": "track",
+    "extension": ".melon"
+   },
+   {
+    "name": "CustomMaps",
+    "target": "UserData/CustomMaps",
+    "mode": "track",
+    "extension": ".bcm,.cma"
+   },
+   {
+    "name": "PlayerModels",
+    "target": "UserData/PlayerModels",
+    "mode": "track",
+    "extension": ".body"
+   },
+   {
+    "name": "CustomLoadScreens",
+    "target": "UserData/CustomLoadScreens",
+    "mode": "track",
+    "extension": ".load"
+   },
+   {
+    "name": "Music",
+    "target": "UserData/Music",
+    "mode": "track",
+    "extension": ".wav"
+   },
+   {
+    "name": "Food",
+    "target": "UserData/Food",
+    "mode": "track",
+    "extension": ".food"
+   },
+   {
+    "name": "Scoreworks",
+    "target": "UserData/Scoreworks",
+    "mode": "track",
+    "extension": ".sw"
+   },
+   {
+    "name": "CustomSkins",
+    "target": "UserData/CustomSkins",
+    "mode": "track",
+    "extension": ".png"
+   },
+   {
+    "name": "Grenades",
+    "target": "UserData/Grenades",
+    "mode": "track",
+    "extension": ".grenade"
+   }
+  ]
+ },
+ "Content Warning": {
+  "name": "BepInEx"
+ },
+ "Titanfall 2: Northstar": {
+  "name": "Northstar"
+ },
+ "Valheim": {
+  "name": "BepInEx",
+  "packageName": "denikson-BepInExPack_Valheim",
+  "subdirs": [
+   {
+    "name": "SlimVML",
+    "target": "BepInEx/SlimVML"
+   }
+  ]
+ },
+ "Astroneer": {
+  "name": "Shimloader",
+  "fileTarget": "./Astro/Binaries/Win64"
+ },
+ "Balatro": {
+  "name": "Lovely"
+ },
+ "Hades II": {
+  "name": "ReturnOfModding",
+  "packageName": "Hell2Modding-Hell2Modding",
+  "fileTarget": "./Ship",
+  "files": [
+   "d3d12.dll"
+  ]
+ },
+ "Primordialis": {
+  "name": "Nucleus",
+  "packageName": "u0068-Nucleus"
+ },
+ "Resonite": {
+  "name": "BepisLoader"
+ },
+ "WEBFISHING": {
+  "name": "GDWeave"
+ }
+}

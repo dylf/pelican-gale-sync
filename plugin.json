@@ -1,0 +1,18 @@
+{
+    "id": "gale-sync",
+    "name": "Gale Sync",
+    "author": "dylf",
+    "version": "0.1.0",
+    "description": "Keep a server's mods in sync with a Gale profile: follow a Gale sync ID and install the same mods, from Thunderstore or Hexium, that your players run",
+    "url": "https://github.com/dylf/gale-sync",
+    "update_url": "https://github.com/dylf/gale-sync/releases/latest/download/update.json",
+    "category": "plugin",
+    "namespace": "Dylf\\GaleSync",
+    "class": "GaleSyncPlugin",
+    "panels": [
+        "server"
+    ],
+    "panel_version": null,
+    "api_version": 1,
+    "composer_packages": null
+}

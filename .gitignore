@@ -1,0 +1,24 @@
+# Build artifacts
+*.zip
+.phpunit.cache/
+.phpunit.result.cache
+composer.lock
+
+# Dependencies (installed by the panel, not part of the plugin)
+/vendor/
+/node_modules/
+
+# Local environment and secrets
+.env
+.env.*
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+*.tmp

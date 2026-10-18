@@ -1,0 +1,24 @@
+{
+    "name": "dylf/gale-sync",
+    "description": "Gale profile sync for the Pelican panel",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": "^8.4",
+        "ext-zip": "*",
+        "symfony/yaml": "^7.4"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.0",
+        "laravel/pint": "^1.29"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Dylf\\GaleSync\\": "src/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "lint": "pint --test"
+    }
+}
