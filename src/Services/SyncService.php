@@ -18,6 +18,9 @@ use ZipArchive;
 
 class SyncService
 {
+    /** Bump when the stored summary changes shape, so summaries saved by an older version are looked up again. */
+    public const SUMMARY_VERSION = 2;
+
     public function __construct(
         private readonly GaleClient $client,
         private readonly GamesRegistry $games,
@@ -82,17 +85,10 @@ class SyncService
 
         try {
             $files = $this->files($setting);
-            $state = $this->readState($files);
             $meta = $this->client->meta($id);
 
-            if (!$force && $meta !== null && $state->profileId === $id->value && $state->profileUpdatedAt === $meta['updated_at']) {
-                // The server already follows this version of the profile.
-                $setting->forceFill(['last_checked_at' => now(), 'remote_updated_at' => $meta['updated_at'], 'pending' => null, 'last_error' => null])->save();
-
-                return;
-            }
-
-            if (!$force && $meta !== null && $setting->pending !== null && $setting->remote_updated_at === $meta['updated_at']) {
+            // Nothing new since the last look: the list on the page is still right.
+            if (!$force && $meta !== null && ($setting->pending['version'] ?? 0) === self::SUMMARY_VERSION && $setting->remote_updated_at === $meta['updated_at']) {
                 $setting->forceFill(['last_checked_at' => now(), 'last_error' => null])->save();
 
                 return;
@@ -133,6 +129,7 @@ class SyncService
         $profileChanged = $prepared->updatedAt !== null && $prepared->state->profileUpdatedAt !== $prepared->updatedAt;
 
         return [
+            'version' => self::SUMMARY_VERSION,
             'profile_name' => $prepared->manifest->profileName,
             'game' => $prepared->game['name'] ?? $prepared->community(),
             'updated_at' => $prepared->updatedAt,
@@ -146,7 +143,7 @@ class SyncService
                 'to' => $item->to,
                 'source' => $item->source,
                 'reason' => $item->reason,
-            ], $prepared->plan->with(PlanAction::Install, PlanAction::Update, PlanAction::Remove, PlanAction::Skip)),
+            ], $prepared->plan->items),
         ];
     }
 

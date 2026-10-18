@@ -41,11 +41,14 @@ class StatusRendererTest extends TestCase
         return [
             'profile_name' => 'Example Profile',
             'changes' => true,
-            'counts' => ['install' => 2, 'update' => 1, 'remove' => 0, 'keep' => 5, 'skip' => 1],
+            'counts' => ['install' => 3, 'update' => 1, 'remove' => 0, 'keep' => 1, 'skip' => 1],
             'items' => [
+                ['name' => 'Z-Fine', 'action' => 'keep', 'from' => '9.9.9', 'to' => '9.9.9', 'source' => 'Thunderstore', 'reason' => null],
+                ['name' => 'C-Client', 'action' => 'skip', 'from' => null, 'to' => '1.0.0', 'source' => 'Hexium', 'reason' => 'client-side only'],
                 ['name' => 'A-One', 'action' => 'install', 'from' => null, 'to' => '1.0.0', 'source' => 'Hexium', 'reason' => null],
                 ['name' => 'B-Two', 'action' => 'update', 'from' => '1.0.0', 'to' => '1.1.0', 'source' => 'Thunderstore', 'reason' => null],
-                ['name' => 'C-Client', 'action' => 'skip', 'from' => null, 'to' => '1.0.0', 'source' => 'Hexium', 'reason' => 'client-side only'],
+                ['name' => 'D-Four', 'action' => 'install', 'from' => null, 'to' => '4.0.0', 'source' => 'Thunderstore', 'reason' => null],
+                ['name' => 'E-Five', 'action' => 'install', 'from' => null, 'to' => '5.0.0', 'source' => 'Thunderstore', 'reason' => null],
             ],
         ];
     }
@@ -75,11 +78,85 @@ class StatusRendererTest extends TestCase
         $html = $this->render(['pending' => $this->pending()]);
 
         $this->assertStringContainsString('banner_pending_title', $html);
-        $this->assertStringContainsString('count=3', $html, 'installs, updates and removals are counted; skips are not');
+        $this->assertStringContainsString('count=4', $html, 'installs, updates and removals are counted; skips are not');
         $this->assertStringContainsString('A-One', $html);
         $this->assertStringContainsString('1.0.0 → 1.1.0', $html);
         $this->assertStringContainsString('client-side only', $html);
         $this->assertStringNotContainsString('wire:poll', $html, 'nothing is happening, so nothing needs refreshing');
+    }
+
+    public function test_the_whole_profile_is_listed_with_changes_first_and_up_to_date_mods_last(): void
+    {
+        $html = $this->render(['pending' => $this->pending()]);
+
+        foreach (['label_keep', 'label_install', 'label_update', 'label_skip'] as $label) {
+            $this->assertStringContainsString($label, $html);
+        }
+
+        $order = array_map(fn (string $name) => strpos($html, '>' . $name . '<'), ['B-Two', 'A-One', 'D-Four', 'C-Client', 'Z-Fine']);
+
+        $this->assertSame($order, array_values(array_filter($order, fn ($position) => $position !== false)), 'every mod is listed');
+        $sorted = $order;
+        sort($sorted);
+        $this->assertSame($sorted, $order, 'updates, then missing mods, then skipped, then up to date');
+    }
+
+    public function test_an_up_to_date_server_still_lists_its_mods(): void
+    {
+        $pending = ['profile_name' => 'Example Profile', 'changes' => false, 'counts' => ['keep' => 2, 'skip' => 1], 'items' => [
+            ['name' => 'A-One', 'action' => 'keep', 'from' => '1.0.0', 'to' => '1.0.0', 'source' => 'Hexium', 'reason' => null],
+            ['name' => 'B-Two', 'action' => 'keep', 'from' => '2.0.0', 'to' => '2.0.0', 'source' => 'Thunderstore', 'reason' => null],
+            ['name' => 'C-Client', 'action' => 'skip', 'from' => null, 'to' => '1.0.0', 'source' => 'Hexium', 'reason' => 'client-side only'],
+        ]];
+
+        $html = $this->render(['pending' => $pending, 'last_synced' => '5 minutes ago']);
+
+        $this->assertStringContainsString('banner_uptodate_title', $html);
+        $this->assertStringContainsString('>A-One<', $html);
+        $this->assertStringContainsString('>B-Two<', $html);
+        $this->assertStringContainsString('client-side only', $html);
+    }
+
+    public function test_progress_is_laid_over_the_profile_list_without_changing_its_shape(): void
+    {
+        $progress = $this->running(); // A-One done, B-Two working, D-Four and E-Five waiting
+
+        $html = $this->render(['state' => SyncState::Running, 'pending' => $this->pending(), 'progress' => $progress]);
+
+        $this->assertStringContainsString('>Z-Fine<', $html, 'mods that need no work stay in the list');
+        $this->assertStringContainsString('>C-Client<', $html);
+        $this->assertStringContainsString('state_working', $html);
+        $this->assertStringContainsString('state_waiting', $html);
+
+        // The counts follow the rows: Z-Fine was already fine and A-One just became so.
+        $this->assertStringContainsString('2 label_keep', $html);
+        $this->assertStringContainsString('2 label_install', $html, 'D-Four and E-Five are still waiting');
+
+        // A-One was installed a moment ago: it is up to date now, in the same place in the list.
+        $row = substr($html, (int) strpos($html, '>A-One<') - 400, 500);
+        $this->assertStringContainsString('label_keep', $row);
+        $this->assertStringContainsString('state_done', $row);
+    }
+
+    public function test_a_failed_mod_keeps_its_badge_and_shows_the_reason_on_its_row(): void
+    {
+        $progress = $this->running();
+        $progress->fail('B-Two', 'Could not resolve host');
+        $progress->setPhase(SyncProgress::FAILED, 'x');
+        $progress->finishedAt = self::NOW - 5;
+
+        $html = $this->render(['pending' => $this->pending(), 'progress' => $progress]);
+
+        $this->assertStringContainsString('Could not resolve host', $html);
+        $this->assertStringContainsString('state_failed', $html);
+    }
+
+    public function test_without_a_profile_list_a_running_sync_falls_back_to_its_own_list(): void
+    {
+        $html = $this->render(['state' => SyncState::Running, 'progress' => $this->running()]);
+
+        $this->assertStringContainsString('>A-One<', $html);
+        $this->assertStringContainsString('>D-Four<', $html);
     }
 
     public function test_a_running_sync_shows_progress_and_refreshes_itself(): void

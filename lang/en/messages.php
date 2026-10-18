@@ -58,9 +58,16 @@ return [
     'phase_installing' => 'Installing :mod :version',
     'phase_updating' => 'Updating :mod to :version',
     'phase_removing' => 'Removing :mod',
+    'phase_refreshing' => 'Checking what is on the server now',
     'phase_starting' => 'Starting the server',
     'phase_failures' => ':count mod(s) could not be installed',
     'stop_first' => 'Stop the server before syncing: its mods can not change while it runs.',
+
+    'label_keep' => 'up to date',
+    'label_install' => 'missing',
+    'label_update' => 'update',
+    'label_remove' => 'remove',
+    'label_skip' => 'skipped',
 
     'state_waiting' => 'Waiting',
     'state_working' => 'Working on it',

@@ -231,7 +231,9 @@ class GaleSyncPage extends ServerFormPage
             ]);
 
             // Another profile or other options make the last look at the profile out of date.
-            if ($changed || $setting->isDirty(['skip_client_only'])) {
+            $relook = $changed || $setting->isDirty(['skip_client_only']);
+
+            if ($relook) {
                 $setting->fill(['pending' => null, 'remote_updated_at' => null, 'last_error' => null, 'last_checked_at' => null]);
             }
 
@@ -248,7 +250,7 @@ class GaleSyncPage extends ServerFormPage
                 ->success()
                 ->send();
 
-            if ($changed && $profile) {
+            if ($relook && $profile) {
                 $this->checkNow();
             }
         } catch (Exception $exception) {

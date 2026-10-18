@@ -66,14 +66,15 @@ class SyncRunner
 
             $summary = sprintf('%d installed, %d updated, %d removed', $result['installed'], $result['updated'], $result['removed']);
 
-            if ($result['failed'] !== []) {
-                $setting->forceFill(['last_synced_at' => now()])->save();
-                $this->finish($setting, $progress, SyncProgress::FAILED, trans('gale-sync::messages.phase_failures', ['count' => count($result['failed'])]));
+            // Work out the list again from what is on the server now, so the page ends on the true state.
+            $progress->setPhase(SyncProgress::MODS, trans('gale-sync::messages.phase_refreshing'));
+            $report();
+            $setting->forceFill(['last_synced_at' => now()])->save();
+            $this->service->check($setting, force: true);
 
-                // Show what is still missing, not the plan from before the sync.
-                $this->service->check($setting, force: true);
+            if ($result['failed'] !== []) {
+                $this->finish($setting, $progress, SyncProgress::FAILED, trans('gale-sync::messages.phase_failures', ['count' => count($result['failed'])]));
             } else {
-                $setting->forceFill(['last_synced_at' => now(), 'pending' => null, 'last_error' => null])->save();
                 $this->finish($setting, $progress, SyncProgress::DONE, $summary);
             }
 

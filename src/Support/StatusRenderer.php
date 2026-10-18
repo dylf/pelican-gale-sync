@@ -21,9 +21,12 @@ final class StatusRenderer
 
     private const GRAY = '#9ca3af';
 
-    private const ACTION_COLORS = ['install' => self::GREEN, 'update' => self::BLUE, 'remove' => self::RED, 'skip' => self::GRAY];
+    private const ACTION_COLORS = ['keep' => self::GREEN, 'install' => self::AMBER, 'update' => self::BLUE, 'remove' => self::RED, 'skip' => self::GRAY];
 
-    private const ACTION_SYMBOLS = ['install' => '+', 'update' => '~', 'remove' => '−', 'skip' => '·'];
+    private const ACTION_SYMBOLS = ['keep' => '✓', 'install' => '+', 'update' => '~', 'remove' => '−', 'skip' => '·'];
+
+    /** Changes first, then what is left out, then what is fine. */
+    private const ACTION_ORDER = ['remove' => 0, 'update' => 1, 'install' => 2, 'skip' => 3, 'keep' => 4];
 
     /** A finished sync's result is shown for this long, then the page goes back to the "up to date" view. */
     private const RESULT_SECONDS = 1800;
@@ -66,10 +69,14 @@ final class StatusRenderer
         $html = '<style>@keyframes gs-pulse{0%,100%{opacity:1}50%{opacity:.35}}@keyframes gs-slide{0%{left:-40%}100%{left:100%}}</style>';
         $html .= $this->banner($context, $progress, $pending, $hasPending, $recent);
 
-        if ($progress !== null && ($running || $recent || $state === SyncState::Stalled) && $progress->total() > 0) {
+        // Progress is laid over the profile's list while a sync runs and for a while after it.
+        $showProgress = $progress !== null && ($running || $recent || $state === SyncState::Stalled);
+        $items = (array) ($pending['items'] ?? []);
+
+        if ($items !== []) {
+            $html .= $this->profileList($items, $showProgress ? $progress : null);
+        } elseif ($showProgress && $progress->total() > 0) {
             $html .= $this->progressList($progress);
-        } elseif ($pending !== null && $hasPending) {
-            $html .= $this->pendingList($pending);
         }
 
         // While something is happening, ask the page to refresh itself so nobody has to reload.
@@ -168,45 +175,75 @@ final class StatusRenderer
             . ($percent !== null ? '<div style="margin-top: .2rem; font-size: .75rem; opacity: .75; text-align: right;">' . $percent . '%</div>' : '');
     }
 
+    /**
+     * @param  array<string, int>  $counts
+     */
+    private function chips(array $counts): string
+    {
+        $chips = '';
+
+        foreach (array_keys(self::ACTION_ORDER) as $action) {
+            if (($counts[$action] ?? 0) > 0) {
+                $chips .= '<span style="margin-right: .5rem;">' . $this->badge($action, $counts[$action] . ' ' . ($this->t)('label_' . $action, [])) . '</span>';
+            }
+        }
+
+        return $chips !== '' ? '<p style="margin: 0 0 .5rem;">' . $chips . '</p>' : '';
+    }
+
+    /**
+     * Every mod of the profile with where it stands. While a sync runs, each row shows its own progress and a mod that
+     * has just been installed turns into "up to date", so the list keeps its shape from start to finish.
+     *
+     * @param  list<array<string, mixed>>  $items
+     */
+    private function profileList(array $items, ?SyncProgress $progress): string
+    {
+        usort($items, fn (array $a, array $b) => [self::ACTION_ORDER[$a['action']] ?? 9, strtolower($a['name'])] <=> [self::ACTION_ORDER[$b['action']] ?? 9, strtolower($b['name'])]);
+
+        $rows = '';
+        $counts = [];
+
+        foreach ($items as $item) {
+            $action = $item['action'];
+            $state = $progress?->items[$item['name']]['state'] ?? null;
+            $error = $progress?->items[$item['name']]['error'] ?? null;
+
+            $version = match ($action) {
+                'update' => "{$item['from']} → {$item['to']}",
+                'remove' => (string) $item['from'],
+                'keep' => (string) ($item['from'] ?? $item['to']),
+                default => (string) $item['to'],
+            };
+
+            // A mod that has been brought up to date no longer needs the badge of the change that was made.
+            $shown = $state === SyncProgress::OK && in_array($action, ['install', 'update'], true) ? 'keep' : $action;
+            $note = $error ?: trim(($item['source'] ?: '') . ($item['reason'] ? ' · ' . $item['reason'] : ''), ' ·');
+
+            $counts[$shown] = ($counts[$shown] ?? 0) + 1;
+            $rows .= $this->row($shown, $item['name'], $version, $note, $state ?? ($action === 'keep' ? SyncProgress::OK : null), $action === 'skip');
+        }
+
+        // Counted from what is shown, so the chips follow the rows as mods are brought up to date.
+        return $this->chips($counts) . $this->table($rows);
+    }
+
     private function progressList(SyncProgress $progress): string
     {
         $rows = '';
 
         foreach ($progress->items as $name => $item) {
-            $note = $item['state'] === SyncProgress::ERROR ? (string) $item['error'] : '';
-
-            $rows .= $this->row($item['action'], $name, $item['version'] ?? '', $note, $item['state']);
+            $rows .= $this->row($item['action'], $name, $item['version'] ?? '', $item['state'] === SyncProgress::ERROR ? (string) $item['error'] : '', $item['state']);
         }
 
         return $this->table($rows);
     }
 
-    /**
-     * @param  array<string, mixed>  $pending
-     */
-    private function pendingList(array $pending): string
-    {
-        $rows = '';
-
-        foreach ($pending['items'] ?? [] as $item) {
-            $version = match ($item['action']) {
-                'update' => "{$item['from']} → {$item['to']}",
-                'remove' => (string) $item['from'],
-                default => (string) $item['to'],
-            };
-            $note = trim(($item['source'] ?: '') . ($item['reason'] ? ' · ' . $item['reason'] : ''), ' ·');
-
-            $rows .= $this->row($item['action'], $item['name'], $version, $note, null);
-        }
-
-        return $this->table($rows);
-    }
-
-    private function row(string $action, string $name, string $version, string $note, ?string $state): string
+    private function row(string $action, string $name, string $version, string $note, ?string $state, bool $dim = false): string
     {
         $color = self::ACTION_COLORS[$action] ?? self::GRAY;
         $cell = 'padding: .25rem .75rem .25rem .5rem;';
-        $opacity = $action === 'skip' || $state === SyncProgress::WAITING ? ' opacity: .6;' : '';
+        $opacity = $dim || $state === SyncProgress::WAITING ? ' opacity: .6;' : '';
 
         $icon = match ($state) {
             SyncProgress::WAITING => '<span title="' . $this->esc(($this->t)('state_waiting', [])) . '" style="opacity: .6;">○</span>',
@@ -219,9 +256,11 @@ final class StatusRenderer
         $noteColor = $state === SyncProgress::ERROR ? ' color: ' . self::RED . ';' : ' opacity: .75;';
         $background = $state === SyncProgress::ERROR ? self::RED : $color;
         $working = $state === SyncProgress::WORKING ? ' font-weight: 600;' : '';
+        // Rows that are already fine stay quiet so the ones that need attention stand out.
+        $tint = $action === 'keep' ? '0d' : '14';
 
-        return '<tr style="background: ' . $background . '14; box-shadow: inset 3px 0 0 ' . $color . ';' . $opacity . '">'
-            . ($state !== null ? '<td style="' . $cell . ' width: 1.5rem; text-align: center;">' . $icon . '</td>' : '')
+        return '<tr style="background: ' . $background . $tint . '; box-shadow: inset 3px 0 0 ' . $color . ';' . $opacity . '">'
+            . '<td style="' . $cell . ' width: 1.5rem; text-align: center;">' . $icon . '</td>'
             . '<td style="' . $cell . '">' . $this->badge($action) . '</td>'
             . '<td style="' . $cell . ' font-weight: 500;' . $working . '">' . $this->esc($name) . '</td>'
             . '<td style="' . $cell . ' color: ' . $color . ';">' . $this->esc($version) . '</td>'
@@ -233,12 +272,12 @@ final class StatusRenderer
         return '<table style="font-size: .8rem; border-collapse: separate; border-spacing: 0 2px; width: 100%;">' . $rows . '</table>';
     }
 
-    private function badge(string $action): string
+    private function badge(string $action, ?string $text = null): string
     {
         $color = self::ACTION_COLORS[$action] ?? self::GRAY;
 
-        return '<span style="display: inline-block; min-width: 4.5rem; padding: .05rem .5rem; border-radius: .375rem; font-weight: 600; text-align: center; color: ' . $color . '; background: ' . $color . '26;">'
-            . $this->esc((self::ACTION_SYMBOLS[$action] ?? '') . ' ' . $action) . '</span>';
+        return '<span style="display: inline-block; min-width: 5.5rem; padding: .05rem .5rem; border-radius: .375rem; font-weight: 600; text-align: center; color: ' . $color . '; background: ' . $color . '26;">'
+            . $this->esc((self::ACTION_SYMBOLS[$action] ?? '') . ' ' . ($text ?? ($this->t)('label_' . $action, []))) . '</span>';
     }
 
     /**
