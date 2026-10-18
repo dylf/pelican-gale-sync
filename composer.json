@@ -1,5 +1,5 @@
 {
-    "name": "dylf/gale-sync",
+    "name": "dylf/pelican-gale-sync",
     "description": "Gale profile sync for the Pelican panel",
     "type": "project",
     "license": "MIT",

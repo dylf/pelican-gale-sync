@@ -3,7 +3,7 @@
   "packages": {
     ".": {
       "release-type": "simple",
-      "package-name": "gale-sync",
+      "package-name": "pelican-gale-sync",
       "include-component-in-tag": false,
       "bump-minor-pre-major": true,
       "extra-files": [
