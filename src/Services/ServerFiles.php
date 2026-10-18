@@ -5,6 +5,7 @@ namespace Dylf\GaleSync\Services;
 use App\Models\Server;
 use App\Repositories\Daemon\DaemonFileRepository;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Throwable;
 
@@ -24,7 +25,7 @@ class ServerFiles
     public function read(string $path): ?string
     {
         try {
-            return $this->files->getContent('/' . ltrim($path, '/'));
+            return $this->attempt(fn () => $this->files->getContent('/' . ltrim($path, '/')));
         } catch (FileNotFoundException) {
             return null;
         } catch (RequestException $exception) {
@@ -38,7 +39,7 @@ class ServerFiles
 
     public function write(string $path, string $content): void
     {
-        $this->files->putContent('/' . ltrim($path, '/'), $content)->throw();
+        $this->attempt(fn () => $this->files->putContent('/' . ltrim($path, '/'), $content)->throw());
 
         // Remember the new file instead of listing the folder again for every file of a package.
         $parent = dirname(trim($path, '/'));
@@ -58,7 +59,7 @@ class ServerFiles
             return;
         }
 
-        $this->files->deleteFiles('/', array_map(fn (string $path) => ltrim($path, '/'), $paths))->throw();
+        $this->attempt(fn () => $this->files->deleteFiles('/', array_map(fn (string $path) => ltrim($path, '/'), $paths))->throw());
 
         $this->listings = [];
     }
@@ -87,12 +88,25 @@ class ServerFiles
         }
 
         try {
-            $entries = $this->files->getDirectory($directory);
+            $entries = $this->attempt(fn () => $this->files->getDirectory($directory));
         } catch (Throwable) {
             return $this->listings[$directory] = [];
         }
 
         return $this->listings[$directory] = array_values(array_filter(array_map(fn ($entry) => is_array($entry) ? ($entry['name'] ?? null) : null, $entries)));
+    }
+
+    /**
+     * A sync makes hundreds of calls to Wings; a hiccup in one (a DNS lookup, a dropped connection) shouldn't fail a mod.
+     *
+     * @template T
+     *
+     * @param  \Closure(): T  $call
+     * @return T
+     */
+    private function attempt(\Closure $call): mixed
+    {
+        return retry(4, $call, 750, fn (Throwable $exception) => $exception instanceof ConnectionException);
     }
 
     public function exists(string $path): bool

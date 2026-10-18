@@ -2,6 +2,7 @@
 
 namespace Dylf\GaleSync\Services;
 
+use Dylf\GaleSync\Core\SyncProgress;
 use Dylf\GaleSync\Models\GaleSyncServer;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -14,7 +15,11 @@ use Throwable;
  */
 class SyncRunner
 {
-    public function __construct(private readonly SyncService $service, private readonly ServerPower $power) {}
+    public function __construct(
+        private readonly SyncService $service,
+        private readonly ServerPower $power,
+        private readonly ProgressStore $progressStore,
+    ) {}
 
     /**
      * @param  bool  $stopFirst  stop the server if it is running (mods can't change under a running game)
@@ -23,24 +28,36 @@ class SyncRunner
     public function run(GaleSyncServer $setting, bool $stopFirst = false, bool $startAfter = false): void
     {
         $server = $setting->server;
-        $setting->setStatus(GaleSyncServer::SYNCING, 'Starting');
+        $progress = new SyncProgress(startedAt: time());
+        $report = fn () => $this->progressStore->put($setting->id, $progress);
+
+        $setting->setStatus(GaleSyncServer::SYNCING, trans('gale-sync::messages.phase_reading'));
+        $progress->setPhase(SyncProgress::READING, trans('gale-sync::messages.phase_reading'));
+        $report();
 
         $stopped = false;
 
         try {
             if (!$this->power->isStopped($server)) {
                 if (!$stopFirst) {
-                    throw new GaleSyncException('Stop the server before syncing: its mods can not change while it runs.');
+                    throw new GaleSyncException(trans('gale-sync::messages.stop_first'));
                 }
 
-                $setting->setStatus(GaleSyncServer::SYNCING, 'Stopping the server');
+                $progress->setPhase(SyncProgress::STOPPING, trans('gale-sync::messages.phase_stopping'));
+                $report();
+
                 $this->power->stop($server, (int) config('gale-sync.stop_timeout', 90));
                 $stopped = true;
             }
 
-            $result = $this->service->apply($setting, function (string $message) use ($setting) {
-                $setting->setStatus(GaleSyncServer::SYNCING, $message);
-            });
+            $result = $this->service->apply($setting, $progress);
+
+            if ($startAfter && $stopped) {
+                $progress->setPhase(SyncProgress::STARTING, trans('gale-sync::messages.phase_starting'));
+                $report();
+
+                $this->power->start($server);
+            }
 
             $summary = sprintf('%d installed, %d updated, %d removed', $result['installed'], $result['updated'], $result['removed']);
 
@@ -48,16 +65,17 @@ class SyncRunner
                 $failures = collect($result['failed'])->map(fn ($error, $name) => "$name: $error")->implode('; ');
                 $setting->forceFill(['last_synced_at' => now()])->save();
                 $setting->setStatus(GaleSyncServer::FAILED, "$summary, but some failed: $failures");
+                $this->finish($setting, $progress, SyncProgress::FAILED, trans('gale-sync::messages.phase_failures', ['count' => count($result['failed'])]));
+
+                // Show what is still missing, not the plan from before the sync.
+                $this->service->check($setting, force: true);
             } else {
                 $setting->forceFill(['last_synced_at' => now(), 'pending' => null, 'last_error' => null])->save();
                 $setting->setStatus(GaleSyncServer::IDLE, $summary);
+                $this->finish($setting, $progress, SyncProgress::DONE, $summary);
             }
 
             Log::info("gale-sync: synced server {$server->uuid} ($summary)");
-
-            if ($startAfter && $stopped) {
-                $this->power->start($server);
-            }
         } catch (SyncAlreadyRunningException) {
             // Another process is doing this sync; leave its status alone.
             return;
@@ -67,6 +85,7 @@ class SyncRunner
             }
 
             $setting->setStatus(GaleSyncServer::FAILED, $exception->getMessage());
+            $this->finish($setting, $progress, SyncProgress::FAILED, $exception->getMessage());
 
             // The server was stopped for this sync; don't leave it down because the sync failed.
             if ($stopped && $startAfter) {
@@ -77,5 +96,12 @@ class SyncRunner
                 }
             }
         }
+    }
+
+    private function finish(GaleSyncServer $setting, SyncProgress $progress, string $phase, string $message): void
+    {
+        $progress->setPhase($phase, $message);
+        $progress->finishedAt = time();
+        $this->progressStore->put($setting->id, $progress);
     }
 }

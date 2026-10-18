@@ -11,8 +11,10 @@ use Dylf\GaleSync\Core\ProfileId;
 use Dylf\GaleSync\Models\GaleSyncServer;
 use Dylf\GaleSync\Services\AutoApply;
 use Dylf\GaleSync\Services\GaleSyncException;
+use Dylf\GaleSync\Services\ProgressStore;
 use Dylf\GaleSync\Services\ServerPower;
 use Dylf\GaleSync\Services\SyncService;
+use Dylf\GaleSync\Support\StatusRenderer;
 use Exception;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
@@ -131,6 +133,9 @@ class GaleSyncPage extends ServerFormPage
         return $schema
             ->statePath('data')
             ->components([
+                // First on the page, so what the sync is doing is the first thing you see.
+                Html::make(fn () => $this->statusHtml()),
+
                 Section::make(trans('gale-sync::messages.profile_section'))
                     ->description(trans('gale-sync::messages.profile_section_hint'))
                     ->schema([
@@ -188,95 +193,27 @@ class GaleSyncPage extends ServerFormPage
                         Text::make(trans('gale-sync::messages.auto_manual_note')),
                     ]),
 
-                Section::make(trans('gale-sync::messages.status_section'))
-                    // A closure, so it is rebuilt on every render and shows a running sync's progress.
-                    ->schema([Html::make(fn () => $this->statusHtml())]),
             ]);
     }
 
     protected function statusHtml(): HtmlString
     {
         $setting = $this->setting();
-        $colors = ['success' => '#22c55e', 'warning' => '#f59e0b', 'danger' => '#ef4444', 'gray' => 'inherit'];
-        $line = fn (string $text, string $color = 'gray') => '<p style="margin: 0 0 .5rem; font-size: .875rem; color: ' . $colors[$color] . ';">' . e($text) . '</p>';
         $when = fn ($at) => $at ? $at->diffForHumans() : trans('gale-sync::messages.never');
 
-        $html = '';
+        $renderer = new StatusRenderer(fn (string $key, array $values) => trans('gale-sync::messages.' . $key, $values), time());
 
-        if ($setting->isStuckInQueue()) {
-            $html .= $line(trans('gale-sync::messages.stuck_in_queue'), 'danger');
-        } elseif ($setting->isSyncing()) {
-            $html .= '<div wire:poll.3s>' . $line(trans('gale-sync::messages.syncing', ['message' => $setting->status_message]), 'warning') . '</div>';
-        } elseif ($setting->status === GaleSyncServer::FAILED) {
-            $html .= $line(trans('gale-sync::messages.last_sync_failed', ['message' => $setting->status_message]), 'danger');
-        } elseif ($setting->last_synced_at) {
-            $html .= $line(trans('gale-sync::messages.last_sync', ['when' => $when($setting->last_synced_at), 'message' => $setting->status_message]), 'success');
-        }
-
-        if (!$setting->profile) {
-            return new HtmlString($html . $line(trans('gale-sync::messages.no_profile')));
-        }
-
-        $html .= $line(trans('gale-sync::messages.last_check', ['when' => $when($setting->last_checked_at)]));
-
-        if ($setting->last_error) {
-            $html .= $line($setting->last_error, 'danger');
-        }
-
-        $pending = $setting->pending;
-
-        if ($pending === null) {
-            return new HtmlString($html . ($setting->last_checked_at && !$setting->last_error ? $line(trans('gale-sync::messages.up_to_date'), 'success') : ''));
-        }
-
-        $html .= $line(trans('gale-sync::messages.pending_for', ['profile' => $pending['profile_name'], 'game' => $pending['game']]));
-        $html .= SyncService::hasPending($pending)
-            ? $line(trans('gale-sync::messages.pending_changes', $pending['counts']), 'warning')
-            : $line(trans('gale-sync::messages.up_to_date'), 'success');
-
-        // One color per kind of change, shown as a tinted row and a badge so a long list is easy to scan.
-        $colors = ['install' => '#22c55e', 'update' => '#3b82f6', 'remove' => '#ef4444', 'skip' => '#9ca3af'];
-        $symbols = ['install' => '+', 'update' => '~', 'remove' => '−', 'skip' => '·'];
-        $badge = fn (string $action, string $text) => '<span style="display: inline-block; min-width: 4.5rem; padding: .05rem .5rem; border-radius: .375rem; font-weight: 600; text-align: center; color: ' . $colors[$action] . '; background: ' . $colors[$action] . '26;">'
-            . e($symbols[$action] . ' ' . $text) . '</span>';
-
-        $chips = '';
-
-        foreach ($pending['counts'] ?? [] as $action => $count) {
-            if ($count > 0 && isset($colors[$action])) {
-                $chips .= '<span style="margin-right: .5rem;">' . $badge($action, $count . ' ' . $action) . '</span>';
-            }
-        }
-
-        if ($chips !== '') {
-            $html .= '<p style="margin: 0 0 .5rem;">' . $chips . '</p>';
-        }
-
-        $rows = '';
-
-        foreach ($pending['items'] ?? [] as $item) {
-            $action = $item['action'];
-            $color = $colors[$action] ?? '#9ca3af';
-            $version = match ($action) {
-                'update' => "{$item['from']} → {$item['to']}",
-                'remove' => $item['from'],
-                default => $item['to'],
-            };
-            $note = trim(($item['source'] ?: '') . ($item['reason'] ? ' · ' . $item['reason'] : ''), ' ·');
-            $cell = 'padding: .2rem .75rem .2rem .5rem;';
-
-            $rows .= '<tr style="background: ' . $color . '14; box-shadow: inset 3px 0 0 ' . $color . ';' . ($action === 'skip' ? ' opacity: .7;' : '') . '">'
-                . '<td style="' . $cell . '">' . $badge($action, $action) . '</td>'
-                . '<td style="' . $cell . ' font-weight: 500;">' . e($item['name']) . '</td>'
-                . '<td style="' . $cell . ' color: ' . $color . ';">' . e((string) $version) . '</td>'
-                . '<td style="' . $cell . ' opacity: .75;">' . e($note) . '</td></tr>';
-        }
-
-        if ($rows !== '') {
-            $html .= '<table style="font-size: .8rem; border-collapse: separate; border-spacing: 0 2px; width: 100%;">' . $rows . '</table>';
-        }
-
-        return new HtmlString($html);
+        return new HtmlString($renderer->render([
+            'has_profile' => (bool) $setting->profile,
+            'status' => $setting->status ?? GaleSyncServer::IDLE,
+            'stuck' => $setting->isStuckInQueue(),
+            'status_since' => $setting->status_since?->getTimestamp(),
+            'last_error' => $setting->last_error,
+            'last_checked' => $when($setting->last_checked_at),
+            'last_synced' => $setting->last_synced_at ? $when($setting->last_synced_at) : null,
+            'pending' => $setting->pending,
+            'progress' => $setting->exists ? app(ProgressStore::class)->get($setting->id) : null,
+        ]));
     }
 
     public function save(): void
@@ -365,6 +302,7 @@ class GaleSyncPage extends ServerFormPage
         }
 
         Cache::forget(AutoApply::REQUEST_KEY . $setting->id);
+        app(ProgressStore::class)->forget($setting->id);
         $setting->setStatus(GaleSyncServer::IDLE);
 
         Notification::make()->title(trans('gale-sync::messages.status_reset'))->success()->send();

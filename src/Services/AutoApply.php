@@ -3,6 +3,7 @@
 namespace Dylf\GaleSync\Services;
 
 use App\Enums\ContainerStatus;
+use Dylf\GaleSync\Core\SyncProgress;
 use Dylf\GaleSync\Models\GaleSyncServer;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -26,7 +27,8 @@ class AutoApply
     public static function request(GaleSyncServer $setting, bool $stopFirst, bool $startAfter): void
     {
         Cache::put(self::REQUEST_KEY . $setting->id, ['stop_first' => $stopFirst, 'start_after' => $startAfter], now()->addMinutes(30));
-        $setting->setStatus(GaleSyncServer::QUEUED, 'Starting within a minute');
+        app(ProgressStore::class)->put($setting->id, new SyncProgress(SyncProgress::QUEUED, trans('gale-sync::messages.queued'), time()));
+        $setting->setStatus(GaleSyncServer::QUEUED, trans('gale-sync::messages.queued'));
     }
 
     /**

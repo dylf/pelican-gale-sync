@@ -3,7 +3,6 @@
 namespace Dylf\GaleSync\Services;
 
 use App\Repositories\Daemon\DaemonFileRepository;
-use Closure;
 use Dylf\GaleSync\Core\InstalledMod;
 use Dylf\GaleSync\Core\InstallState;
 use Dylf\GaleSync\Core\LayoutPlanner;
@@ -11,6 +10,7 @@ use Dylf\GaleSync\Core\ManifestMod;
 use Dylf\GaleSync\Core\PlanAction;
 use Dylf\GaleSync\Core\PlanBuilder;
 use Dylf\GaleSync\Core\PlanItem;
+use Dylf\GaleSync\Core\SyncProgress;
 use Dylf\GaleSync\Models\GaleSyncServer;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -24,6 +24,7 @@ class SyncService
         private readonly GamesRegistry $games,
         private readonly PackageSources $sources,
         private readonly DaemonFileRepository $daemonFiles,
+        private readonly ProgressStore $progressStore,
     ) {}
 
     public function files(GaleSyncServer $setting): ServerFiles
@@ -155,9 +156,9 @@ class SyncService
      *
      * @return array{installed: int, updated: int, removed: int, failed: array<string, string>}
      */
-    public function apply(GaleSyncServer $setting, ?Closure $progress = null): array
+    public function apply(GaleSyncServer $setting, ?SyncProgress $progress = null): array
     {
-        $progress ??= fn (string $message) => null;
+        $progress ??= new SyncProgress(startedAt: time());
         $lock = Cache::lock('gale-sync:apply:' . $setting->server_id, 1800);
 
         if (!$lock->get()) {
@@ -166,7 +167,10 @@ class SyncService
 
         try {
             $files = $this->files($setting);
-            $progress('Reading the profile');
+
+            $progress->setPhase(SyncProgress::READING, trans('gale-sync::messages.phase_reading'));
+            $this->progressStore->put($setting->id, $progress);
+
             $prepared = $this->prepare($setting, $files);
 
             return $this->execute($setting, $prepared, $files, $progress);
@@ -178,7 +182,7 @@ class SyncService
     /**
      * @return array{installed: int, updated: int, removed: int, failed: array<string, string>}
      */
-    private function execute(GaleSyncServer $setting, Prepared $prepared, ServerFiles $files, Closure $progress): array
+    private function execute(GaleSyncServer $setting, Prepared $prepared, ServerFiles $files, SyncProgress $progress): array
     {
         $state = $prepared->state;
         $result = ['installed' => 0, 'updated' => 0, 'removed' => 0, 'failed' => []];
@@ -188,20 +192,33 @@ class SyncService
             $files->write(InstallState::FILE, $state->toJson());
         };
 
+        // What is about to happen, in the order it happens, so the page can show every mod waiting its turn.
+        $work = [...$prepared->plan->with(PlanAction::Remove), ...$prepared->plan->with(PlanAction::Update, PlanAction::Install)];
+        $progress->plan(array_map(fn (PlanItem $item) => ['name' => $item->fullName, 'action' => $item->action->value, 'version' => $item->to ?? $item->from], $work));
+        $report = fn () => $this->progressStore->put($setting->id, $progress);
+        $report();
+
         foreach ($prepared->plan->with(PlanAction::Remove) as $item) {
-            $progress("Removing {$item->fullName}");
+            $progress->setPhase(SyncProgress::MODS, trans('gale-sync::messages.phase_removing', ['mod' => $item->fullName]));
+            $progress->start($item->fullName);
+            $report();
 
             try {
                 $this->remove($state, $item->fullName, $files);
                 $save();
                 $result['removed']++;
+                $progress->finish($item->fullName);
             } catch (Throwable $exception) {
                 $result['failed'][$item->fullName] = $exception->getMessage();
+                $progress->fail($item->fullName, $exception->getMessage());
             }
+
+            $report();
         }
 
         if ($setting->config_mode !== 'none') {
-            $progress('Copying the profile\'s config files');
+            $progress->setPhase(SyncProgress::CONFIG, trans('gale-sync::messages.phase_config'));
+            $report();
 
             try {
                 $this->syncConfigs($setting, $prepared, $files);
@@ -212,8 +229,10 @@ class SyncService
 
         $changes = $prepared->plan->with(PlanAction::Update, PlanAction::Install);
 
-        foreach ($changes as $index => $item) {
-            $progress(sprintf('%s %s (%d of %d)', $item->action === PlanAction::Update ? 'Updating' : 'Installing', $item->fullName, $index + 1, count($changes)));
+        foreach ($changes as $item) {
+            $progress->setPhase(SyncProgress::MODS, trans($item->action === PlanAction::Update ? 'gale-sync::messages.phase_updating' : 'gale-sync::messages.phase_installing', ['mod' => $item->fullName, 'version' => $item->to]));
+            $progress->start($item->fullName);
+            $report();
 
             $mod = $prepared->manifest->find($item->fullName);
 
@@ -229,14 +248,20 @@ class SyncService
                 $save();
 
                 $result[$item->action === PlanAction::Update ? 'updated' : 'installed']++;
+                $progress->finish($item->fullName);
             } catch (Throwable $exception) {
                 $result['failed'][$item->fullName] = $exception->getMessage();
+                $progress->fail($item->fullName, $exception->getMessage());
 
                 if (!$exception instanceof GaleSyncException) {
                     report($exception);
                 }
             }
+
+            $report();
         }
+
+        $progress->summary = ['installed' => $result['installed'], 'updated' => $result['updated'], 'removed' => $result['removed']];
 
         if ($result['failed'] === []) {
             $state->profileId = $prepared->id->value;
