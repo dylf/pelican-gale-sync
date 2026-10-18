@@ -24,6 +24,7 @@ use Filament\Schemas\Components\Html;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\HtmlString;
 
 class GaleSyncPage extends ServerFormPage
@@ -86,17 +87,31 @@ class GaleSyncPage extends ServerFormPage
                 ->label(trans('gale-sync::messages.check_now'))
                 ->icon('tabler-search')
                 ->color('gray')
+                ->button()
                 ->disabled(fn () => !$this->setting()->profileId() || $this->setting()->isSyncing())
                 ->action(fn () => $this->checkNow()),
 
             Action::make('sync')
                 ->label(trans('gale-sync::messages.sync_now'))
                 ->icon('tabler-refresh')
+                ->button()
                 ->requiresConfirmation()
                 ->modalHeading(trans('gale-sync::messages.sync_now'))
                 ->modalDescription(fn () => trans($this->isRunning() ? 'gale-sync::messages.sync_confirm_running' : 'gale-sync::messages.sync_confirm_stopped'))
                 ->disabled(fn () => !$this->setting()->profileId() || $this->setting()->isSyncing())
                 ->action(fn () => $this->syncNow()),
+
+            // For a sync that looks stuck, or a failure that has been dealt with.
+            Action::make('reset')
+                ->label(trans('gale-sync::messages.reset_status'))
+                ->icon('tabler-x')
+                ->color('gray')
+                ->button()
+                ->requiresConfirmation()
+                ->modalHeading(trans('gale-sync::messages.reset_status'))
+                ->modalDescription(trans('gale-sync::messages.reset_confirm'))
+                ->visible(fn () => in_array($this->setting()->status, [GaleSyncServer::QUEUED, GaleSyncServer::SYNCING, GaleSyncServer::FAILED], true))
+                ->action(fn () => $this->resetStatus()),
         ];
     }
 
@@ -337,6 +352,22 @@ class GaleSyncPage extends ServerFormPage
         }
 
         $notification->send();
+    }
+
+    public function resetStatus(): void
+    {
+        abort_unless(user()?->can('gale_sync.update', $this->getRecord()), 403);
+
+        $setting = $this->setting();
+
+        if (!$setting->exists) {
+            return;
+        }
+
+        Cache::forget(AutoApply::REQUEST_KEY . $setting->id);
+        $setting->setStatus(GaleSyncServer::IDLE);
+
+        Notification::make()->title(trans('gale-sync::messages.status_reset'))->success()->send();
     }
 
     public function syncNow(): void

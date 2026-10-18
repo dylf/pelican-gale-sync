@@ -48,6 +48,9 @@ return [
     'sync_now' => 'Sync now',
     'sync_confirm_stopped' => 'Installs, updates and removes mods so the server matches the profile.',
     'sync_confirm_running' => 'The server is running. It will be stopped, updated to match the profile, and started again.',
+    'reset_status' => 'Reset status',
+    'reset_confirm' => 'Clears a stuck or failed status so you can sync again. It does not stop a sync that is really running.',
+    'status_reset' => 'Status cleared',
     'sync_started' => 'Sync started',
     'already_syncing' => 'A sync is already running',
 ];
