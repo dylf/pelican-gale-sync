@@ -4,6 +4,7 @@ namespace Dylf\GaleSync\Services;
 
 use App\Enums\ContainerStatus;
 use Dylf\GaleSync\Core\SyncProgress;
+use Dylf\GaleSync\Core\SyncState;
 use Dylf\GaleSync\Models\GaleSyncServer;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -19,6 +20,7 @@ class AutoApply
         private readonly SyncService $service,
         private readonly ServerPower $power,
         private readonly SyncRunner $runner,
+        private readonly ProgressStore $progressStore,
     ) {}
 
     /**
@@ -28,7 +30,6 @@ class AutoApply
     {
         Cache::put(self::REQUEST_KEY . $setting->id, ['stop_first' => $stopFirst, 'start_after' => $startAfter], now()->addMinutes(30));
         app(ProgressStore::class)->put($setting->id, new SyncProgress(SyncProgress::QUEUED, trans('gale-sync::messages.queued'), time()));
-        $setting->setStatus(GaleSyncServer::QUEUED, trans('gale-sync::messages.queued'));
     }
 
     /**
@@ -38,22 +39,24 @@ class AutoApply
     {
         $results = [];
 
-        // Syncs an admin asked for with "Sync now" come first.
-        GaleSyncServer::query()->where('status', GaleSyncServer::QUEUED)->with('server')->each(function (GaleSyncServer $setting) use (&$results) {
-            // A request that waited longer than the page allows was already reported as "never started"; don't run it now.
-            if (!$setting->isSyncing()) {
-                return;
-            }
+        $settings = GaleSyncServer::query()->whereNotNull('profile')->with('server')->get();
 
-            $request = Cache::pull(self::REQUEST_KEY . $setting->id) ?? [];
+        // Syncs an admin asked for with "Sync now" come first.
+        foreach ($settings as $setting) {
+            $request = Cache::pull(self::REQUEST_KEY . $setting->id);
+
+            // A request that waited too long was already reported as "never started"; don't run it now.
+            if ($request === null || $this->progressStore->state($setting->id) !== SyncState::Queued) {
+                continue;
+            }
 
             $this->runner->run($setting, (bool) ($request['stop_first'] ?? false), (bool) ($request['start_after'] ?? false));
             $results[$setting->server_id] = 'synced on request';
-        });
+        }
 
-        GaleSyncServer::query()->whereNotNull('profile')->with('server')->each(function (GaleSyncServer $setting) use (&$results, $force) {
-            $results[$setting->server_id] = $this->handle($setting, $force);
-        });
+        foreach ($settings as $setting) {
+            $results[$setting->server_id] ??= $this->handle($setting, $force);
+        }
 
         return $results;
     }
@@ -71,7 +74,7 @@ class AutoApply
             return 'skipped: server is suspended or busy';
         }
 
-        if ($setting->isSyncing()) {
+        if ($this->progressStore->state($setting->id)->isActive()) {
             return 'skipped: a sync is running or requested';
         }
 

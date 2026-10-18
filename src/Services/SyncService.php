@@ -12,7 +12,6 @@ use Dylf\GaleSync\Core\PlanBuilder;
 use Dylf\GaleSync\Core\PlanItem;
 use Dylf\GaleSync\Core\SyncProgress;
 use Dylf\GaleSync\Models\GaleSyncServer;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 use ZipArchive;
@@ -159,24 +158,14 @@ class SyncService
     public function apply(GaleSyncServer $setting, ?SyncProgress $progress = null): array
     {
         $progress ??= new SyncProgress(startedAt: time());
-        $lock = Cache::lock('gale-sync:apply:' . $setting->server_id, 1800);
+        $files = $this->files($setting);
 
-        if (!$lock->get()) {
-            throw new SyncAlreadyRunningException('A sync is already running for this server.');
-        }
+        $progress->setPhase(SyncProgress::READING, trans('gale-sync::messages.phase_reading'));
+        $this->progressStore->put($setting->id, $progress);
 
-        try {
-            $files = $this->files($setting);
+        $prepared = $this->prepare($setting, $files);
 
-            $progress->setPhase(SyncProgress::READING, trans('gale-sync::messages.phase_reading'));
-            $this->progressStore->put($setting->id, $progress);
-
-            $prepared = $this->prepare($setting, $files);
-
-            return $this->execute($setting, $prepared, $files, $progress);
-        } finally {
-            $lock->release();
-        }
+        return $this->execute($setting, $prepared, $files, $progress);
     }
 
     /**

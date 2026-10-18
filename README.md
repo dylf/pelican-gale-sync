@@ -28,6 +28,17 @@ By default a profile update waits on the page until you press **Sync now**. Two 
 
 Remember your players have to update their profile in Gale too, or they and the server will run different mods.
 
+## Status
+The top of the server page shows what is going on, live: a banner with a progress bar while a sync runs, and every mod as
+waiting, working, done or failed (with the reason when it failed). Nothing is stored that could get stuck: the state is
+worked out from the sync's progress and from whether the process doing it is still reporting.
+- **Requested:** waiting for the scheduler's next run (under a minute). After 5 minutes the page says it never started,
+  which means the scheduler isn't running, and **Sync now** can be pressed again.
+- **Running:** the process is alive and reporting. **Sync now** is off until it finishes.
+- **Stopped unexpectedly:** it started but went quiet for 5 minutes (the process died). **Sync now** is available again
+  and picks up where it left off, because each finished mod is recorded as it completes.
+- **Finished:** the result stays for 30 minutes, then the page goes back to "up to date" or "update available".
+
 ## Setup
 1. Install the plugin (Admin → Plugins → Import).
 2. Add the egg feature `gale_sync` to the eggs that should get the page (Admin → Eggs → Features).

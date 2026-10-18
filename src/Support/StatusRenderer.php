@@ -3,6 +3,7 @@
 namespace Dylf\GaleSync\Support;
 
 use Dylf\GaleSync\Core\SyncProgress;
+use Dylf\GaleSync\Core\SyncState;
 
 /**
  * Draws the status block at the top of the server page: a banner that says what is going on, a progress bar while a
@@ -41,9 +42,7 @@ final class StatusRenderer
     /**
      * @param  array{
      *     has_profile: bool,
-     *     status: string,
-     *     stuck: bool,
-     *     status_since: ?int,
+     *     state: SyncState,
      *     last_error: ?string,
      *     last_checked: ?string,
      *     last_synced: ?string,
@@ -57,16 +56,17 @@ final class StatusRenderer
         $pending = $context['pending'];
         $hasPending = $pending !== null && ($pending['changes'] ?? false);
 
-        $running = $progress !== null && !$progress->finished();
-        $queued = $context['status'] === 'queued' && !$context['stuck'];
+        $state = $context['state'];
+        $running = $state === SyncState::Running;
+        $queued = $state === SyncState::Queued;
         $recent = $progress !== null && $progress->finished() && ($this->now - ($progress->finishedAt ?? 0)) < self::RESULT_SECONDS;
 
-        $live = $running || $queued;
+        $live = $state->isActive();
 
         $html = '<style>@keyframes gs-pulse{0%,100%{opacity:1}50%{opacity:.35}}@keyframes gs-slide{0%{left:-40%}100%{left:100%}}</style>';
-        $html .= $this->banner($context, $progress, $pending, $hasPending, $running, $queued, $recent);
+        $html .= $this->banner($context, $progress, $pending, $hasPending, $recent);
 
-        if ($progress !== null && ($running || $recent) && $progress->total() > 0) {
+        if ($progress !== null && ($running || $recent || $state === SyncState::Stalled) && $progress->total() > 0) {
             $html .= $this->progressList($progress);
         } elseif ($pending !== null && $hasPending) {
             $html .= $this->pendingList($pending);
@@ -80,17 +80,23 @@ final class StatusRenderer
      * @param  array<string, mixed>  $context
      * @param  array<string, mixed>|null  $pending
      */
-    private function banner(array $context, ?SyncProgress $progress, ?array $pending, bool $hasPending, bool $running, bool $queued, bool $recent): string
+    private function banner(array $context, ?SyncProgress $progress, ?array $pending, bool $hasPending, bool $recent): string
     {
+        $state = $context['state'];
+
         if (!$context['has_profile']) {
             return $this->box(self::GRAY, ($this->t)('banner_no_profile', []), '');
         }
 
-        if ($context['stuck']) {
+        if ($state === SyncState::NeverStarted) {
             return $this->box(self::RED, ($this->t)('banner_stuck_title', []), ($this->t)('banner_stuck_sub', []));
         }
 
-        if ($running) {
+        if ($state === SyncState::Stalled) {
+            return $this->box(self::RED, ($this->t)('banner_stalled_title', []), ($this->t)('banner_stalled_sub', ['message' => $progress->message]));
+        }
+
+        if ($state === SyncState::Running) {
             $title = $progress->total() > 0
                 ? ($this->t)('banner_running_title', ['done' => $progress->handled(), 'total' => $progress->total()])
                 : ($this->t)('banner_running_title_unknown', []);
@@ -103,8 +109,8 @@ final class StatusRenderer
             );
         }
 
-        if ($queued) {
-            $requested = $context['status_since'] ? $this->duration(max(0, $this->now - $context['status_since'])) : '';
+        if ($state === SyncState::Queued) {
+            $requested = $this->duration(max(0, $this->now - ($progress->startedAt ?? $this->now)));
 
             return $this->box(self::BLUE, ($this->t)('banner_queued_title', []), ($this->t)('banner_queued_sub', ['when' => $requested]), $this->bar(self::BLUE, null));
         }

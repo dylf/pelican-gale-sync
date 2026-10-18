@@ -36,7 +36,9 @@ return [
     // The banner at the top of the page.
     'banner_no_profile' => 'Enter a Gale sync ID to get started.',
     'banner_stuck_title' => 'The sync never started',
-    'banner_stuck_sub' => 'Pelican\'s scheduler is not running. It must run every minute (the cron job for `php artisan schedule:run`). Fix that, then press Reset status and Sync now again.',
+    'banner_stalled_title' => 'The sync stopped unexpectedly',
+    'banner_stalled_sub' => 'Nothing has reported progress for a few minutes (it was: :message). Press Sync now to run it again; mods that were already installed are kept.',
+    'banner_stuck_sub' => 'Pelican\'s scheduler is not running. It must run every minute (the cron job for `php artisan schedule:run`). Once that is fixed, press Sync now again.',
     'banner_running_title' => 'Syncing: :done of :total mods',
     'banner_running_title_unknown' => 'Syncing',
     'banner_queued_title' => 'Sync requested',
@@ -72,9 +74,6 @@ return [
     'sync_now' => 'Sync now',
     'sync_confirm_stopped' => 'Installs, updates and removes mods so the server matches the profile.',
     'sync_confirm_running' => 'The server is running. It will be stopped, updated to match the profile, and started again.',
-    'reset_status' => 'Reset status',
-    'reset_confirm' => 'Clears a stuck or failed status so you can sync again. It does not stop a sync that is really running.',
-    'status_reset' => 'Status cleared',
     'sync_started' => 'Sync started',
     'already_syncing' => 'A sync is already running',
 ];

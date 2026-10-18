@@ -108,6 +108,14 @@ final class SyncProgress
         $this->set($name, self::ERROR, $error);
     }
 
+    /**
+     * Past the request, not yet finished: a process is (or should be) working on it.
+     */
+    public function running(): bool
+    {
+        return !$this->finished() && $this->phase !== self::QUEUED;
+    }
+
     public function finished(): bool
     {
         return in_array($this->phase, [self::DONE, self::FAILED], true);
