@@ -5,6 +5,7 @@ namespace Dylf\GaleSync\Jobs;
 use Dylf\GaleSync\Models\GaleSyncServer;
 use Dylf\GaleSync\Services\GaleSyncException;
 use Dylf\GaleSync\Services\ServerPower;
+use Dylf\GaleSync\Services\SyncAlreadyRunningException;
 use Dylf\GaleSync\Services\SyncService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -78,6 +79,9 @@ class ApplySyncJob implements ShouldQueue
             if ($this->startAfter && $stopped) {
                 $power->start($server);
             }
+        } catch (SyncAlreadyRunningException) {
+            // Another job is doing this sync; leave its status alone.
+            return;
         } catch (Throwable $exception) {
             if (!$exception instanceof GaleSyncException) {
                 report($exception);

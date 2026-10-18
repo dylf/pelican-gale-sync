@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property ?string $remote_updated_at
  * @property ?array<string, mixed> $pending
  * @property ?string $last_error
- * @property string $status idle, syncing or failed
+ * @property string $status idle, queued, syncing or failed
  * @property ?CarbonInterface $status_since
  * @property ?string $status_message
  * @property ?CarbonInterface $last_synced_at
@@ -31,6 +31,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class GaleSyncServer extends Model
 {
     public const IDLE = 'idle';
+
+    public const QUEUED = 'queued';
 
     public const SYNCING = 'syncing';
 
@@ -76,14 +78,27 @@ class GaleSyncServer extends Model
         return $this->profile ? ProfileId::parse($this->profile) : null;
     }
 
+    /**
+     * Whether a sync is queued or running. Each state expires, so a job that died (or never started because no queue
+     * worker is running) doesn't block the server for ever.
+     */
     public function isSyncing(): bool
     {
-        if ($this->status !== self::SYNCING) {
-            return false;
-        }
+        $minutes = match ($this->status) {
+            self::SYNCING => (int) config('gale-sync.stale_minutes', 30),
+            self::QUEUED => (int) config('gale-sync.queue_wait_minutes', 2),
+            default => null,
+        };
 
-        // A job that died without finishing must not block the server for ever.
-        return $this->status_since && $this->status_since->gt(now()->subMinutes((int) config('gale-sync.stale_minutes', 30)));
+        return $minutes !== null && $this->status_since && $this->status_since->gt(now()->subMinutes($minutes));
+    }
+
+    /**
+     * A sync was queued but nothing picked it up in time.
+     */
+    public function isStuckInQueue(): bool
+    {
+        return $this->status === self::QUEUED && !$this->isSyncing();
     }
 
     public function setStatus(string $status, ?string $message = null): void

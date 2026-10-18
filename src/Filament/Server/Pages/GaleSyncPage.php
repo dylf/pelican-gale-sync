@@ -188,7 +188,9 @@ class GaleSyncPage extends ServerFormPage
 
         $html = '';
 
-        if ($setting->isSyncing()) {
+        if ($setting->isStuckInQueue()) {
+            $html .= $line(trans('gale-sync::messages.stuck_in_queue'), 'danger');
+        } elseif ($setting->isSyncing()) {
             $html .= '<div wire:poll.3s>' . $line(trans('gale-sync::messages.syncing', ['message' => $setting->status_message]), 'warning') . '</div>';
         } elseif ($setting->status === GaleSyncServer::FAILED) {
             $html .= $line(trans('gale-sync::messages.last_sync_failed', ['message' => $setting->status_message]), 'danger');
@@ -338,7 +340,7 @@ class GaleSyncPage extends ServerFormPage
             $running = false;
         }
 
-        $setting->setStatus(GaleSyncServer::SYNCING, trans('gale-sync::messages.queued'));
+        $setting->setStatus(GaleSyncServer::QUEUED, trans('gale-sync::messages.queued'));
 
         // A running server is stopped for the sync and started again after it.
         ApplySyncJob::dispatch($setting->id, stopFirst: $running, startAfter: $running);

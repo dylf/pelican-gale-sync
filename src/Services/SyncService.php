@@ -161,7 +161,7 @@ class SyncService
         $lock = Cache::lock('gale-sync:apply:' . $setting->server_id, 1800);
 
         if (!$lock->get()) {
-            throw new GaleSyncException('A sync is already running for this server.');
+            throw new SyncAlreadyRunningException('A sync is already running for this server.');
         }
 
         try {
@@ -254,7 +254,7 @@ class SyncService
         $installed = $state->mods[$fullName] ?? null;
 
         if ($installed !== null) {
-            $files->delete([...$installed->dirs, ...$installed->files]);
+            $files->deleteExisting([...$installed->dirs, ...$installed->files]);
         }
 
         unset($state->mods[$fullName]);
@@ -292,7 +292,7 @@ class SyncService
                 $layout = $planner->plan($prepared->rules, $mod->fullName, $entries);
 
                 // Replace the mod's folders as a whole so files a newer version dropped don't linger.
-                $files->delete([...($old?->dirs ?? []), ...($old?->files ?? []), ...$layout->dirs]);
+                $files->deleteExisting([...($old?->dirs ?? []), ...($old?->files ?? []), ...$layout->dirs]);
 
                 foreach ($layout->moves as $move) {
                     if ($move['config'] && $files->exists($move['to'])) {

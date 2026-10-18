@@ -37,6 +37,7 @@ return [
     'last_sync_failed' => 'The last sync failed: :message',
     'syncing' => 'Syncing: :message',
     'queued' => 'Waiting for the queue',
+    'stuck_in_queue' => 'The sync never started. The panel\'s queue worker is not running or needs a restart (it must be restarted after a plugin is installed or updated). Restart it, then press Sync now again.',
     'up_to_date' => 'The server matches the profile.',
     'pending_for' => 'Profile ":profile" for :game.',
     'pending_changes' => 'An update is waiting: :install to install, :update to update, :remove to remove.',

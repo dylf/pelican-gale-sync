@@ -40,7 +40,13 @@ class ServerFiles
     {
         $this->files->putContent('/' . ltrim($path, '/'), $content)->throw();
 
-        $this->listings = [];
+        // Remember the new file instead of listing the folder again for every file of a package.
+        $parent = dirname(trim($path, '/'));
+        $directory = '/' . ($parent === '.' ? '' : $parent);
+
+        if (isset($this->listings[$directory]) && !in_array(basename($path), $this->listings[$directory], true)) {
+            $this->listings[$directory][] = basename($path);
+        }
     }
 
     /**
@@ -55,6 +61,16 @@ class ServerFiles
         $this->files->deleteFiles('/', array_map(fn (string $path) => ltrim($path, '/'), $paths))->throw();
 
         $this->listings = [];
+    }
+
+    /**
+     * Deletes the paths that exist and ignores the ones that don't.
+     *
+     * @param  list<string>  $paths
+     */
+    public function deleteExisting(array $paths): void
+    {
+        $this->delete(array_values(array_filter($paths, fn (string $path) => $this->exists($path))));
     }
 
     /**
