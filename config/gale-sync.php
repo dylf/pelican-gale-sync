@@ -16,8 +16,8 @@ return [
     // Minutes a server may stay "syncing" before the plugin assumes the job died and lets you start another.
     'stale_minutes' => (int) env('GALE_SYNC_STALE_MINUTES', 30),
 
-    // Minutes a queued sync may wait for the queue worker before the page says it never started.
-    'queue_wait_minutes' => (int) env('GALE_SYNC_QUEUE_WAIT_MINUTES', 2),
+    // Minutes a requested sync may wait for the scheduler's next run before the page says it never started.
+    'queue_wait_minutes' => (int) env('GALE_SYNC_QUEUE_WAIT_MINUTES', 5),
 
     // Seconds to wait for a server to stop before giving up on an automatic update.
     'stop_timeout' => (int) env('GALE_SYNC_STOP_TIMEOUT', 90),

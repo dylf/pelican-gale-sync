@@ -86,7 +86,7 @@ class GaleSyncServer extends Model
     {
         $minutes = match ($this->status) {
             self::SYNCING => (int) config('gale-sync.stale_minutes', 30),
-            self::QUEUED => (int) config('gale-sync.queue_wait_minutes', 2),
+            self::QUEUED => (int) config('gale-sync.queue_wait_minutes', 5),
             default => null,
         };
 
@@ -94,7 +94,7 @@ class GaleSyncServer extends Model
     }
 
     /**
-     * A sync was queued but nothing picked it up in time.
+     * A sync was requested but the scheduler never picked it up in time.
      */
     public function isStuckInQueue(): bool
     {

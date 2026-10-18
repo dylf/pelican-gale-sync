@@ -1,65 +1,44 @@
 <?php
 
-namespace Dylf\GaleSync\Jobs;
+namespace Dylf\GaleSync\Services;
 
 use Dylf\GaleSync\Models\GaleSyncServer;
-use Dylf\GaleSync\Services\GaleSyncException;
-use Dylf\GaleSync\Services\ServerPower;
-use Dylf\GaleSync\Services\SyncAlreadyRunningException;
-use Dylf\GaleSync\Services\SyncService;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
  * Syncs one server with its Gale profile: optionally stops it first, and starts it again afterwards.
+ *
+ * Runs inside the scheduled `gale-sync:check` command, which is a fresh process every minute, so it always runs the
+ * plugin's current code (a queue worker keeps the code it started with and has to be restarted after a plugin update).
  */
-class ApplySyncJob implements ShouldQueue
+class SyncRunner
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
+    public function __construct(private readonly SyncService $service, private readonly ServerPower $power) {}
 
-    public int $timeout = 1800;
-
-    public int $tries = 1;
-
-    public function __construct(
-        public readonly int $settingId,
-        /** Stop the server if it is running (Valheim can't load mods that change under it). */
-        public readonly bool $stopFirst = false,
-        /** Start the server again afterwards. */
-        public readonly bool $startAfter = false,
-    ) {}
-
-    public function handle(SyncService $service, ServerPower $power): void
+    /**
+     * @param  bool  $stopFirst  stop the server if it is running (mods can't change under a running game)
+     * @param  bool  $startAfter  start it again afterwards; only done if this run stopped it
+     */
+    public function run(GaleSyncServer $setting, bool $stopFirst = false, bool $startAfter = false): void
     {
-        $setting = GaleSyncServer::query()->with('server')->find($this->settingId);
-
-        if (!$setting || !$setting->profile) {
-            return;
-        }
-
         $server = $setting->server;
         $setting->setStatus(GaleSyncServer::SYNCING, 'Starting');
 
         $stopped = false;
 
         try {
-            if (!$power->isStopped($server)) {
-                if (!$this->stopFirst) {
+            if (!$this->power->isStopped($server)) {
+                if (!$stopFirst) {
                     throw new GaleSyncException('Stop the server before syncing: its mods can not change while it runs.');
                 }
 
                 $setting->setStatus(GaleSyncServer::SYNCING, 'Stopping the server');
-                $power->stop($server, (int) config('gale-sync.stop_timeout', 90));
+                $this->power->stop($server, (int) config('gale-sync.stop_timeout', 90));
                 $stopped = true;
             }
 
-            $result = $service->apply($setting, function (string $message) use ($setting) {
+            $result = $this->service->apply($setting, function (string $message) use ($setting) {
                 $setting->setStatus(GaleSyncServer::SYNCING, $message);
             });
 
@@ -76,11 +55,11 @@ class ApplySyncJob implements ShouldQueue
 
             Log::info("gale-sync: synced server {$server->uuid} ($summary)");
 
-            if ($this->startAfter && $stopped) {
-                $power->start($server);
+            if ($startAfter && $stopped) {
+                $this->power->start($server);
             }
         } catch (SyncAlreadyRunningException) {
-            // Another job is doing this sync; leave its status alone.
+            // Another process is doing this sync; leave its status alone.
             return;
         } catch (Throwable $exception) {
             if (!$exception instanceof GaleSyncException) {
@@ -90,9 +69,9 @@ class ApplySyncJob implements ShouldQueue
             $setting->setStatus(GaleSyncServer::FAILED, $exception->getMessage());
 
             // The server was stopped for this sync; don't leave it down because the sync failed.
-            if ($stopped && $this->startAfter) {
+            if ($stopped && $startAfter) {
                 try {
-                    $power->start($server);
+                    $this->power->start($server);
                 } catch (Throwable) {
                     // Nothing more we can do; the failure is on the page.
                 }

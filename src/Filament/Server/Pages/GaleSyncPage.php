@@ -8,8 +8,8 @@ use App\Models\Server;
 use Boy132\PlayerCounter\Extensions\Query\QueryTypeService;
 use Boy132\PlayerCounter\Models\GameQuery;
 use Dylf\GaleSync\Core\ProfileId;
-use Dylf\GaleSync\Jobs\ApplySyncJob;
 use Dylf\GaleSync\Models\GaleSyncServer;
+use Dylf\GaleSync\Services\AutoApply;
 use Dylf\GaleSync\Services\GaleSyncException;
 use Dylf\GaleSync\Services\ServerPower;
 use Dylf\GaleSync\Services\SyncService;
@@ -361,10 +361,8 @@ class GaleSyncPage extends ServerFormPage
             $running = false;
         }
 
-        $setting->setStatus(GaleSyncServer::QUEUED, trans('gale-sync::messages.queued'));
-
-        // A running server is stopped for the sync and started again after it.
-        ApplySyncJob::dispatch($setting->id, stopFirst: $running, startAfter: $running);
+        // A running server is stopped for the sync and started again after it. The scheduled command does the work.
+        AutoApply::request($setting, stopFirst: $running, startAfter: $running);
 
         Activity::event('server:gale-sync.sync')
             ->property('profile', $setting->profile)

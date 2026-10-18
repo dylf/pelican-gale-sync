@@ -17,10 +17,12 @@ class GaleSyncPluginProvider extends ServiceProvider
     public function boot(): void
     {
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+            // Also runs the syncs: a fresh process each minute, so no queue worker to restart after a plugin update.
             // Each server is only looked at when its own interval is up, so this is cheap on most runs.
             $schedule->command('gale-sync:check')
                 ->everyMinute()
-                ->withoutOverlapping(10);
+                ->withoutOverlapping(10)
+                ->runInBackground();
         });
     }
 }

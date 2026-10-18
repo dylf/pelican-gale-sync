@@ -3,8 +3,8 @@
 namespace Dylf\GaleSync\Services;
 
 use App\Enums\ContainerStatus;
-use Dylf\GaleSync\Jobs\ApplySyncJob;
 use Dylf\GaleSync\Models\GaleSyncServer;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -12,7 +12,22 @@ use Illuminate\Support\Facades\Log;
  */
 class AutoApply
 {
-    public function __construct(private readonly SyncService $service, private readonly ServerPower $power) {}
+    public const REQUEST_KEY = 'gale-sync:request:';
+
+    public function __construct(
+        private readonly SyncService $service,
+        private readonly ServerPower $power,
+        private readonly SyncRunner $runner,
+    ) {}
+
+    /**
+     * Remembers that an admin asked for a sync, for the next run of the scheduled command to pick up.
+     */
+    public static function request(GaleSyncServer $setting, bool $stopFirst, bool $startAfter): void
+    {
+        Cache::put(self::REQUEST_KEY . $setting->id, ['stop_first' => $stopFirst, 'start_after' => $startAfter], now()->addMinutes(30));
+        $setting->setStatus(GaleSyncServer::QUEUED, 'Starting within a minute');
+    }
 
     /**
      * @return array<int, string> server id => what was decided, for logging
@@ -20,6 +35,19 @@ class AutoApply
     public function run(bool $force = false): array
     {
         $results = [];
+
+        // Syncs an admin asked for with "Sync now" come first.
+        GaleSyncServer::query()->where('status', GaleSyncServer::QUEUED)->with('server')->each(function (GaleSyncServer $setting) use (&$results) {
+            // A request that waited longer than the page allows was already reported as "never started"; don't run it now.
+            if (!$setting->isSyncing()) {
+                return;
+            }
+
+            $request = Cache::pull(self::REQUEST_KEY . $setting->id) ?? [];
+
+            $this->runner->run($setting, (bool) ($request['stop_first'] ?? false), (bool) ($request['start_after'] ?? false));
+            $results[$setting->server_id] = 'synced on request';
+        });
 
         GaleSyncServer::query()->whereNotNull('profile')->with('server')->each(function (GaleSyncServer $setting) use (&$results, $force) {
             $results[$setting->server_id] = $this->handle($setting, $force);
@@ -42,7 +70,7 @@ class AutoApply
         }
 
         if ($setting->isSyncing()) {
-            return 'skipped: a sync is running';
+            return 'skipped: a sync is running or requested';
         }
 
         // A profile code never changes, so only a sync ID is followed on a timer.
@@ -62,18 +90,18 @@ class AutoApply
         }
 
         if ($setting->auto_apply_stopped && $this->power->isStopped($server)) {
-            ApplySyncJob::dispatch($setting->id);
             Log::info("gale-sync: applying a profile update to stopped server {$server->uuid}");
+            $this->runner->run($setting);
 
-            return 'applying (server stopped)';
+            return 'applied (server stopped)';
         }
 
         if ($setting->auto_apply_empty && $this->power->status($server) === ContainerStatus::Running) {
             if ($this->power->players($server) === 0) {
-                ApplySyncJob::dispatch($setting->id, stopFirst: true, startAfter: true);
                 Log::info("gale-sync: applying a profile update to empty server {$server->uuid}");
+                $this->runner->run($setting, stopFirst: true, startAfter: true);
 
-                return 'applying (server empty)';
+                return 'applied (server empty)';
             }
 
             return 'update waiting: players online or count unknown';
