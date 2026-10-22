@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/dylf/pelican-gale-sync/compare/v0.2.0...v0.2.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* keep banned function names out of the regression test's comments ([fd7a41d](https://github.com/dylf/pelican-gale-sync/commit/fd7a41d0957789b4a156855584ed6d7a07536599))
+
 ## [0.2.0](https://github.com/dylf/pelican-gale-sync/compare/v0.1.0...v0.2.0) (2026-10-22)
 
 
