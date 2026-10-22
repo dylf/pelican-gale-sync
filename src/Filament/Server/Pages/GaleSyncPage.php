@@ -33,7 +33,7 @@ class GaleSyncPage extends ServerFormPage
 {
     public const FEATURE = 'gale_sync';
 
-    protected static string|\BackedEnum|null $navigationIcon = 'tabler-refresh';
+    protected static string|\BackedEnum|null $navigationIcon = 'tabler-wind';
 
     protected static ?string $slug = 'gale-sync';
 

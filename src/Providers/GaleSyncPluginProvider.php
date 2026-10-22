@@ -11,7 +11,7 @@ class GaleSyncPluginProvider extends ServiceProvider
     public function register(): void
     {
         // Lets owners give subusers the right to follow a profile and sync the server's mods.
-        Subuser::registerCustomPermissions('gale_sync', ['update'], 'gale-sync::permissions', 'tabler-refresh');
+        Subuser::registerCustomPermissions('gale_sync', ['update'], 'gale-sync::permissions', 'tabler-wind');
     }
 
     public function boot(): void
