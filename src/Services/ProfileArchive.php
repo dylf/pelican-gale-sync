@@ -13,7 +13,7 @@ class ProfileArchive
 {
     private ZipArchive $zip;
 
-    private string $path;
+    private string $name;
 
     public function __construct(string $bytes)
     {
@@ -22,13 +22,13 @@ class ProfileArchive
             $bytes = (string) base64_decode(trim(substr($bytes, (int) strpos($bytes, "\n"))), true);
         }
 
-        $this->path = (string) tempnam(sys_get_temp_dir(), 'gale-sync-');
-        file_put_contents($this->path, $bytes);
+        $this->name = Scratch::reserve('profile');
+        Scratch::put($this->name, $bytes);
 
         $this->zip = new ZipArchive();
 
-        if ($this->zip->open($this->path) !== true) {
-            @unlink($this->path);
+        if ($this->zip->open(Scratch::path($this->name)) !== true) {
+            Scratch::delete($this->name);
 
             throw new GaleSyncException('The profile download is not a valid zip file.');
         }
@@ -37,7 +37,7 @@ class ProfileArchive
     public function __destruct()
     {
         $this->zip->close();
-        @unlink($this->path);
+        Scratch::delete($this->name);
     }
 
     public function manifest(): Manifest

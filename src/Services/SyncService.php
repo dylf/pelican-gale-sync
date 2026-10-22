@@ -274,7 +274,8 @@ class SyncService
     private function install(Prepared $prepared, ManifestMod $mod, string $source, ?InstalledMod $old, ServerFiles $files, LayoutPlanner $planner): InstalledMod
     {
         $url = $this->sources->downloadUrl($source, $mod);
-        $path = (string) tempnam(sys_get_temp_dir(), 'gale-sync-pkg-');
+        $scratch = Scratch::reserve('package');
+        $path = Scratch::path($scratch);
 
         try {
             $response = Http::timeout(300)->sink($path)->get($url);
@@ -316,7 +317,7 @@ class SyncService
                 $zip->close();
             }
         } finally {
-            @unlink($path);
+            Scratch::delete($scratch);
         }
 
         return new InstalledMod($mod->version, $source, $layout->dirs, $layout->files);
