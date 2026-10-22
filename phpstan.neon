@@ -6,7 +6,11 @@ includes:
 parameters:
 
     paths:
-        - plugins/gale-sync
+        - plugins
+
+    excludePaths:
+        analyse:
+            - plugins/player-counter
 
     level: 6
 
