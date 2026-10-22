@@ -40,6 +40,15 @@ class ProgressStore
     }
 
     /**
+     * Drops a server's progress record, e.g. when it is pointed at another profile.
+     */
+    public function forget(int $settingId): void
+    {
+        Cache::forget($this->key($settingId));
+        $this->release($settingId);
+    }
+
+    /**
      * Takes the right to run this server's sync. Only one process can hold it.
      */
     public function claim(int $settingId): bool
