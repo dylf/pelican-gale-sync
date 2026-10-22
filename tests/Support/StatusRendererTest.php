@@ -141,6 +141,27 @@ class StatusRendererTest extends TestCase
         $this->assertStringContainsString('state_done', $row);
     }
 
+    public function test_progress_from_a_sync_that_removed_mods_does_not_make_a_plan_that_wants_them_look_installed(): void
+    {
+        // The earlier sync removed A-One and D-Four (both finished fine) ...
+        $removed = new SyncProgress(SyncProgress::DONE, '2 removed', self::NOW - 120);
+        $removed->plan([
+            ['name' => 'A-One', 'action' => 'remove', 'version' => '1.0.0'],
+            ['name' => 'D-Four', 'action' => 'remove', 'version' => '4.0.0'],
+        ]);
+        $removed->finish('A-One');
+        $removed->finish('D-Four');
+        $removed->finishedAt = self::NOW - 60;
+
+        // ... and the server now follows a profile that wants them back.
+        $html = $this->render(['pending' => $this->pending(), 'progress' => $removed]);
+
+        $row = substr($html, (int) strpos($html, '>A-One<') - 500, 600);
+        $this->assertStringContainsString('label_install', $row, 'A-One is missing, whatever an older sync did');
+        $this->assertStringNotContainsString('label_keep', $row);
+        $this->assertStringNotContainsString('state_done', $row);
+    }
+
     public function test_a_failed_mod_keeps_its_badge_and_shows_the_reason_on_its_row(): void
     {
         $progress = $this->running();

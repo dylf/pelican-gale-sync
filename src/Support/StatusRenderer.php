@@ -206,8 +206,12 @@ final class StatusRenderer
 
         foreach ($items as $item) {
             $action = $item['action'];
-            $state = $progress?->items[$item['name']]['state'] ?? null;
-            $error = $progress?->items[$item['name']]['error'] ?? null;
+            // Progress only belongs to a row when it was for the same kind of change: a finished sync that *removed* a mod says
+            // nothing about a plan that now wants it installed.
+            $tracked = $progress?->items[$item['name']] ?? null;
+            $sameChange = $tracked !== null && $tracked['action'] === $action;
+            $state = $sameChange ? $tracked['state'] : null;
+            $error = $sameChange ? $tracked['error'] : null;
 
             $version = match ($action) {
                 'update' => "{$item['from']} → {$item['to']}",

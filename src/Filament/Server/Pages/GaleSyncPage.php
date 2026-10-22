@@ -235,6 +235,11 @@ class GaleSyncPage extends ServerFormPage
 
             if ($relook) {
                 $setting->fill(['pending' => null, 'remote_updated_at' => null, 'last_error' => null, 'last_checked_at' => null]);
+
+                // The last sync's result belongs to the profile it ran for, not to the one chosen now.
+                if ($changed && $setting->exists && !$this->syncState()->isActive()) {
+                    app(ProgressStore::class)->forget($setting->id);
+                }
             }
 
             $setting->save();
