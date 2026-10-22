@@ -7,6 +7,8 @@ you update the profile in Gale, the server shows the update and applies it when 
 Works for any game Gale supports with a BepInEx, BepisLoader or MelonLoader mod loader (about 225 of Gale's 239 games).
 Other loaders are reported as unsupported instead of guessed at.
 
+![Gale Sync settings page for a server](./screenshots/screenshot.png)
+
 ## How it works
 - **Follow:** the server page takes a Gale sync ID (6 or 22 characters) and checks it every few minutes. A one-time
   profile code (a UUID) also works, but it is a frozen snapshot and never updates.
