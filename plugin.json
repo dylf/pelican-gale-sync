@@ -2,7 +2,7 @@
     "id": "gale-sync",
     "name": "Gale Sync",
     "author": "dylf",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Keep a server's mods in sync with a Gale profile: follow a Gale sync ID and install the same mods, from Thunderstore or Hexium, that your players run",
     "url": "https://github.com/dylf/pelican-gale-sync",
     "update_url": "https://hub.pelican.dev/plugins/gale-sync/update.json",
