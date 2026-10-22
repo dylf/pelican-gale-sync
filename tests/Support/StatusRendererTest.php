@@ -36,6 +36,9 @@ class StatusRendererTest extends TestCase
         ]);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function pending(): array
     {
         return [

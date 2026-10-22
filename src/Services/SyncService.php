@@ -303,7 +303,7 @@ class SyncService
                 $layout = $planner->plan($prepared->rules, $mod->fullName, $entries);
 
                 // Replace the mod's folders as a whole so files a newer version dropped don't linger.
-                $files->deleteExisting([...($old?->dirs ?? []), ...($old?->files ?? []), ...$layout->dirs]);
+                $files->deleteExisting([...($old->dirs ?? []), ...($old->files ?? []), ...$layout->dirs]);
 
                 foreach ($layout->moves as $move) {
                     if ($move['config'] && $files->exists($move['to'])) {

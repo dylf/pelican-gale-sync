@@ -15,12 +15,11 @@ use PHPUnit\Framework\TestCase;
 class PlanBuilderTest extends TestCase
 {
     /**
-     * @param  list<array{string, string, 1?: bool}>  $mods  [name, version, enabled]
+     * @param  list<array{0: string, 1: string, 2?: bool}>  $mods  [name, version, enabled]
      */
     private function manifest(array $mods): Manifest
     {
         return new Manifest('p', 'valheim', array_map(function (array $mod) {
-
             return new ManifestMod($mod[0], $mod[1], $mod[2] ?? true, 'Thunderstore');
         }, $mods));
     }
@@ -33,6 +32,9 @@ class PlanBuilderTest extends TestCase
         return new InstallState(array_map(fn (string $version) => new InstalledMod($version, 'Thunderstore'), $versions));
     }
 
+    /**
+     * @param  array<string, bool>  $clientOnly
+     */
     private function plan(Manifest $manifest, InstallState $state, array $clientOnly = [], bool $skip = true): SyncPlan
     {
         $rules = LoaderRulesFactory::fromGame(['name' => 'BepInEx', 'packageName' => 'denikson-BepInExPack_Valheim']);
