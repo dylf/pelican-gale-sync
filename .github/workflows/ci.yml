@@ -45,7 +45,6 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           tools: composer:v2
-          extensions: zip
           coverage: none
 
       - name: Install dependencies
@@ -68,18 +67,17 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Clone Pelican Panel
-        run: git clone --depth=1 https://github.com/pelican-dev/panel pelican
+        run: git clone --depth=1 https://github.com/pelican/panel pelican
 
-      # gale-sync uses the Player Counter plugin's classes (to see when a server is empty), so analyse against it too
+      # gale-sync uses the Player Counter plugin's classes, so analyse against it too
       - name: Clone official plugins
-        run: git clone --depth=1 https://github.com/pelican-dev/plugins official-plugins
+        run: git clone --depth=1 https://github.com/pelican/plugins official-plugins
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           tools: composer:v2
-          extensions: intl, zip
           coverage: none
 
       - name: Install panel dependencies
@@ -91,6 +89,7 @@ jobs:
         run: |
           cd pelican
           composer require "xpaw/php-minecraft-query:^5.0.0" "xpaw/php-source-query-class:^6.0.0"
+          composer require --dev "spaze/phpstan-disallowed-calls"
 
       - name: Setup .env file
         run: cp pelican/.env.example pelican/.env
