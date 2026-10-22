@@ -57,7 +57,7 @@ class NoRawFileOperationsTest extends TestCase
                     continue;
                 }
 
-                // Only a plain function call counts: not ->copy(), Storage::copy(), a method named rename(), or a new class.
+                // Only a plain function call counts: not a method call, a static call, a method declaration or a constructor.
                 $previous = $this->significant($tokens, $i, -1);
                 $next = $this->significant($tokens, $i, 1);
 
